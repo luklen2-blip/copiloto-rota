@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    // Limite rigoroso contra ataques de força bruta no endpoint administrativo (5 tentativas por 15 min)
+    const limit = checkRateLimit(`admin-auth:${ip}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Muitas tentativas de autenticação administrativa. Bloqueado por 15 minutos.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const expectedSecret = process.env.ADMIN_SECRET || 'copiloto-admin-secret-2026';
     const providedSecret = req.headers.get('x-admin-secret') || body.adminSecret;

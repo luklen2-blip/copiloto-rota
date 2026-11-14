@@ -5,6 +5,7 @@ import {
   DailyClosureInput,
 } from "@/services/financialEngine";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import type { Vehicle, MaintenanceItem } from "@/types/database.types";
 
 // Veículo padrão para ambiente de simulação ou novos usuários sem cadastro
@@ -63,6 +64,15 @@ const DEFAULT_SIMULATION_MAINTENANCE_ITEMS: MaintenanceItem[] = [
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(`closure:${ip}`, 45, 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Limite de requisições excedido. Aguarde 1 minuto." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
 
     const textInput: string | undefined = body.text;

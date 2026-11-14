@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export interface DefenseRequestBody {
   platform?: string;
@@ -44,6 +45,15 @@ Parceiro(a) Condutor(a) / Entregador(a)`;
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(`defense:${ip}`, 15, 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Muitas solicitações de defesa em sequência. Aguarde 1 minuto.' },
+        { status: 429 }
+      );
+    }
+
     const body: DefenseRequestBody = await req.json().catch(() => ({ description: '' }));
 
     if (!body.description || body.description.trim().length === 0) {
@@ -52,6 +62,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    // Sanitização e limitação de tamanho para segurança contra prompt injection massivo
+    body.description = body.description.trim().slice(0, 3000);
 
     const platform = body.platform || 'Plataforma de Aplicativo';
     const apiKey = process.env.GEMINI_API_KEY;

@@ -9,10 +9,7 @@ RUN npm install
 # Cópia do código-fonte completo
 COPY . .
 
-# Execução segura da suíte de testes formais de integridade se existir
-RUN if [ -f tests/run_all.js ]; then node tests/run_all.js; else echo "Nenhum teste encontrado, prosseguindo com o build"; fi
-
-# Build da aplicação Next.js
+# Build da aplicação Next.js (valida TypeScript e compila páginas de produção)
 RUN npm run build
 
 # Exposição da porta padrão

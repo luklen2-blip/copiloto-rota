@@ -50,7 +50,6 @@ export default function HomePage() {
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'closure' | 'vault'>('closure');
   const [isLoading, setIsLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [nowMs, setNowMs] = useState<number | undefined>(undefined);
 
   const subscriptionStatus = getSubscriptionStatus(subscription, nowMs);
@@ -63,16 +62,6 @@ export default function HomePage() {
     setActiveClosure(getStoredActiveClosure());
     setWeeklyLogs(getStoredDailyHistory());
     setSubscription(getStoredSubscription());
-
-    try {
-      const tourDone = localStorage.getItem('copiloto_tour_completed');
-      if (tourDone !== 'true') {
-        const timer = setTimeout(() => setIsTourOpen(true), 600);
-        return () => clearTimeout(timer);
-      }
-    } catch {
-      // ignore
-    }
 
     if (isSupabaseConfigured) {
       supabase.auth.getUser().then(({ data }) => {
@@ -95,8 +84,19 @@ export default function HomePage() {
         }
       });
     }
+  }, []);
 
-    setMounted(true);
+  // Abre o tutorial interativo para novos usuários com delay suave
+  useEffect(() => {
+    try {
+      const tourDone = localStorage.getItem('copiloto_tour_completed');
+      if (tourDone !== 'true') {
+        const timer = setTimeout(() => setIsTourOpen(true), 800);
+        return () => clearTimeout(timer);
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   // Ao autenticar com sucesso (Login / Cadastro)
@@ -280,14 +280,6 @@ export default function HomePage() {
       saveStoredActiveClosure(refreshedClosure);
     }
   };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-sm">
-        Carregando Copiloto-Rota...
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950">

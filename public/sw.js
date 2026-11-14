@@ -1,5 +1,5 @@
 // Service Worker para PWA do Copiloto-Rota
-const CACHE_NAME = 'copiloto-rota-cache-v1';
+const CACHE_NAME = 'copiloto-rota-cache-v2';
 
 const STATIC_ASSETS = [
   '/',

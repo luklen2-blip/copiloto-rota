@@ -4,12 +4,14 @@ import type {
   DailyLog,
 } from "@/types/database.types";
 import type { DailyClosureResult } from "@/services/financialEngine";
+import type { RoutePlan } from "@/types/dispatcher.types";
 
 export const STORAGE_KEYS = {
   VEHICLE: "copiloto_rota_vehicle_v1",
   MAINTENANCE_ITEMS: "copiloto_rota_maintenance_items_v1",
   DAILY_LOGS_HISTORY: "copiloto_rota_daily_history_v1",
   ACTIVE_CLOSURE: "copiloto_rota_active_closure_v1",
+  DISPATCHER_ROUTE: "copiloto_rota_dispatcher_route_v1",
 };
 
 export const INITIAL_VEHICLE: Vehicle = {
@@ -249,3 +251,84 @@ export function addStoredDailyLog(log: DailyLog): DailyLog[] {
   saveStoredDailyHistory(updated);
   return updated;
 }
+
+export const INITIAL_SAMPLE_ROUTE: RoutePlan = {
+  id: "route-demo-01",
+  date: new Date().toISOString().split("T")[0],
+  driver_name: "Motorista Copiloto",
+  vehicle_type: "moto",
+  status: "in_progress",
+  total_distance_km: 24.5,
+  stops: [
+    {
+      id: "demo-stop-1",
+      order_id: "NF-8921",
+      customer_name: "Mariana Souza",
+      customer_phone: "11987654321",
+      address: "Rua dos Pinheiros, 450 - Pinheiros, São Paulo - SP",
+      notes: "Deixar na portaria com o porteiro Silva",
+      status: "delivered",
+      eta_minutes: 15,
+      estimated_arrival: "14:15",
+      delivered_at: new Date(Date.now() - 3600000).toISOString(),
+      proof_ocr_result: {
+        detected_order_id: "NF-8921",
+        detected_recipient: "Mariana Souza",
+        signature_present: true,
+        confidence_score: 0.98,
+        summary: "Canhoto assinado e validado pela IA",
+      },
+    },
+    {
+      id: "demo-stop-2",
+      order_id: "NF-8922",
+      customer_name: "Rodrigo Almeida",
+      customer_phone: "11976543210",
+      address: "Alameda Santos, 1200 - Cerqueira César, São Paulo - SP",
+      notes: "Tocar interfone 34B",
+      status: "in_transit",
+      eta_minutes: 35,
+      estimated_arrival: "15:00",
+    },
+    {
+      id: "demo-stop-3",
+      order_id: "NF-8923",
+      customer_name: "Fernanda Lima",
+      customer_phone: "11965432109",
+      address: "Av. Rouxinol, 650 - Moema, São Paulo - SP",
+      notes: "Horário comercial até 18h",
+      status: "pending",
+      eta_minutes: 55,
+      estimated_arrival: "15:35",
+    },
+  ],
+};
+
+export function getStoredRoutePlan(): RoutePlan {
+  if (typeof window === "undefined") return INITIAL_SAMPLE_ROUTE;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DISPATCHER_ROUTE);
+    return raw ? JSON.parse(raw) : INITIAL_SAMPLE_ROUTE;
+  } catch {
+    return INITIAL_SAMPLE_ROUTE;
+  }
+}
+
+export function saveStoredRoutePlan(plan: RoutePlan): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.DISPATCHER_ROUTE, JSON.stringify(plan));
+  } catch (err) {
+    console.error("Erro ao salvar rota do despachante:", err);
+  }
+}
+
+export function clearStoredRoutePlan(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEYS.DISPATCHER_ROUTE);
+  } catch (err) {
+    console.error("Erro ao limpar rota:", err);
+  }
+}
+

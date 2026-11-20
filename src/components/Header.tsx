@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Zap,
   HelpCircle,
+  Truck,
 } from "lucide-react";
 import type { Vehicle } from "@/types/database.types";
 import type { SubscriptionStatusInfo } from "@/lib/subscription";
@@ -25,8 +26,8 @@ interface HeaderProps {
   onOpenTour?: () => void;
   subscriptionStatus: SubscriptionStatusInfo;
   currentUser: { id: string; email?: string } | null;
-  activeTab: "closure" | "vault";
-  onTabChange: (tab: "closure" | "vault") => void;
+  activeTab: "closure" | "vault" | "dispatcher";
+  onTabChange: (tab: "closure" | "vault" | "dispatcher") => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -166,29 +167,41 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Abas de Navegação Principal */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-1">
           <button
             onClick={() => onTabChange("closure")}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all ${
               activeTab === "closure"
                 ? "bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20"
                 : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             <Sparkles className="h-4 w-4" />
-            Fechamento com IA
+            <span className="truncate">Fechamento</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange("dispatcher")}
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all ${
+              activeTab === "dispatcher"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            }`}
+          >
+            <Truck className="h-4 w-4 text-indigo-300" />
+            <span className="truncate">Despachante</span>
           </button>
 
           <button
             onClick={() => onTabChange("vault")}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all ${
               activeTab === "vault"
                 ? "bg-sky-500 text-white shadow-md shadow-sky-500/20"
                 : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             <ShieldAlert className="h-4 w-4" />
-            Cofre Anti-Bloqueio
+            <span className="truncate">Cofre Anti-Bloqueio</span>
           </button>
         </div>
       </div>

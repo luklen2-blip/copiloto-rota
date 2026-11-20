@@ -164,6 +164,39 @@ async function runLiveSuite() {
       testAssert(false, 'API de fechamento operacional', err.message);
     }
 
+    // 6. APIs do Agente Despachante & Entregas (/api/dispatcher/optimize e /api/dispatcher/ocr-proof)
+    console.log('\n🚚 6. Testando APIs do Agente Despachante (/api/dispatcher/*)...');
+    try {
+      const optPayload = {
+        rawText: '1. Carlos - 11988887777 - Rua Augusta 1000 - Pedido #201\n2. Marina - 11977776666 - Av Paulista 500 - Pedido #202'
+      };
+      const optRes = await fetchUrl('/api/dispatcher/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: optPayload
+      });
+      testAssert(optRes.statusCode === 200, 'POST /api/dispatcher/optimize responde HTTP 200');
+      const optData = JSON.parse(optRes.body);
+      testAssert(optData.success === true, 'Otimização e roteirização bem-sucedida');
+      testAssert(Array.isArray(optData.stops) && optData.stops.length === 2, '2 paradas estruturadas retornadas');
+
+      const ocrPayload = {
+        imageBase64: 'data:image/jpeg;base64,dGVzdA==',
+        expectedStop: { order_id: 'PED-201', customer_name: 'Carlos' }
+      };
+      const ocrRes = await fetchUrl('/api/dispatcher/ocr-proof', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: ocrPayload
+      });
+      testAssert(ocrRes.statusCode === 200, 'POST /api/dispatcher/ocr-proof responde HTTP 200');
+      const ocrData = JSON.parse(ocrRes.body);
+      testAssert(ocrData.success === true, 'Auditoria de canhoto OCR executada com sucesso');
+      testAssert(ocrData.result?.signature_present === true, 'Assinatura detectada no comprovante');
+    } catch (err) {
+      testAssert(false, 'APIs do Agente Despachante operacionais', err.message);
+    }
+
     console.log('\n===============================================================');
     if (failed) {
       console.error('❌ ALERTA: Alguns testes ao vivo falharam.');

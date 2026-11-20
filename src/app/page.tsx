@@ -1,17 +1,18 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Header } from '@/components/Header';
-import { VehicleModal } from '@/components/VehicleModal';
-import { AuthModal } from '@/components/AuthModal';
-import { UpgradeModal } from '@/components/UpgradeModal';
-import { InteractiveTour } from '@/components/InteractiveTour';
-import { DailyClosureCard } from '@/components/DailyClosureCard';
-import { ProfitRadioReport } from '@/components/ProfitRadioReport';
-import { MaintenanceBox } from '@/components/MaintenanceBox';
-import { WeeklyHistory } from '@/components/WeeklyHistory';
-import { AntiBlockVault } from '@/components/AntiBlockVault';
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+import { VehicleModal } from "@/components/VehicleModal";
+import { AuthModal } from "@/components/AuthModal";
+import { UpgradeModal } from "@/components/UpgradeModal";
+import { InteractiveTour } from "@/components/InteractiveTour";
+import { DailyClosureCard } from "@/components/DailyClosureCard";
+import { ProfitRadioReport } from "@/components/ProfitRadioReport";
+import { MaintenanceBox } from "@/components/MaintenanceBox";
+import { WeeklyHistory } from "@/components/WeeklyHistory";
+import { AntiBlockVault } from "@/components/AntiBlockVault";
+import { DispatcherAgent } from "@/components/DispatcherAgent";
 import {
   getStoredVehicle,
   saveStoredVehicle,
@@ -21,34 +22,52 @@ import {
   saveStoredActiveClosure,
   getStoredDailyHistory,
   addStoredDailyLog,
+  getStoredRoutePlan,
   INITIAL_VEHICLE,
   INITIAL_MAINTENANCE_ITEMS,
-} from '@/lib/storage';
+  INITIAL_SAMPLE_ROUTE,
+} from "@/lib/storage";
 import {
   getSubscriptionStatus,
   getStoredSubscription,
   saveStoredSubscription,
   DEFAULT_TRIAL_SUBSCRIPTION,
-} from '@/lib/subscription';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { loadUserData } from '@/services/supabaseSync';
-import type { Vehicle, MaintenanceItem, DailyLog, Subscription } from '@/types/database.types';
-import type { DailyClosureResult } from '@/services/financialEngine';
+} from "@/lib/subscription";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { loadUserData } from "@/services/supabaseSync";
+import type {
+  Vehicle,
+  MaintenanceItem,
+  DailyLog,
+  Subscription,
+} from "@/types/database.types";
+import type { DailyClosureResult } from "@/services/financialEngine";
+import type { RoutePlan } from "@/types/dispatcher.types";
 
 export default function HomePage() {
   const [vehicle, setVehicle] = useState<Vehicle>(INITIAL_VEHICLE);
-  const [maintenanceItems, setMaintenanceItems] = useState<MaintenanceItem[]>(INITIAL_MAINTENANCE_ITEMS);
-  const [activeClosure, setActiveClosure] = useState<DailyClosureResult | null>(null);
+  const [maintenanceItems, setMaintenanceItems] = useState<MaintenanceItem[]>(
+    INITIAL_MAINTENANCE_ITEMS,
+  );
+  const [activeClosure, setActiveClosure] = useState<DailyClosureResult | null>(
+    null,
+  );
   const [weeklyLogs, setWeeklyLogs] = useState<DailyLog[]>([]);
-  const [subscription, setSubscription] = useState<Subscription>(DEFAULT_TRIAL_SUBSCRIPTION);
+  const [routePlan, setRoutePlan] = useState<RoutePlan>(INITIAL_SAMPLE_ROUTE);
+  const [subscription, setSubscription] = useState<Subscription>(
+    DEFAULT_TRIAL_SUBSCRIPTION,
+  );
   const [aiMessage, setAiMessage] = useState<string | undefined>();
-  const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    email?: string;
+  } | null>(null);
 
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'closure' | 'vault'>('closure');
+  const [activeTab, setActiveTab] = useState<"closure" | "vault" | "dispatcher">("closure");
   const [isLoading, setIsLoading] = useState(false);
   const [nowMs, setNowMs] = useState<number | undefined>(undefined);
 
@@ -61,6 +80,7 @@ export default function HomePage() {
     setMaintenanceItems(getStoredMaintenanceItems());
     setActiveClosure(getStoredActiveClosure());
     setWeeklyLogs(getStoredDailyHistory());
+    setRoutePlan(getStoredRoutePlan());
     setSubscription(getStoredSubscription());
 
     if (isSupabaseConfigured) {
@@ -89,8 +109,8 @@ export default function HomePage() {
   // Abre o tutorial interativo para novos usuários com delay suave
   useEffect(() => {
     try {
-      const tourDone = localStorage.getItem('copiloto_tour_completed');
-      if (tourDone !== 'true') {
+      const tourDone = localStorage.getItem("copiloto_tour_completed");
+      if (tourDone !== "true") {
         const timer = setTimeout(() => setIsTourOpen(true), 800);
         return () => clearTimeout(timer);
       }
@@ -100,7 +120,9 @@ export default function HomePage() {
   }, []);
 
   // Ao autenticar com sucesso (Login / Cadastro)
-  const handleAuthSuccess = async (user: { id: string; email?: string } | null) => {
+  const handleAuthSuccess = async (
+    user: { id: string; email?: string } | null,
+  ) => {
     setCurrentUser(user);
     if (user && isSupabaseConfigured) {
       const loaded = await loadUserData(user.id);
@@ -122,28 +144,39 @@ export default function HomePage() {
   const handleSimulateProActivation = () => {
     const activeSub: Subscription = {
       ...subscription,
-      plan_status: 'active',
+      plan_status: "active",
       current_period_end: new Date(Date.now() + 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
     };
     setSubscription(activeSub);
     saveStoredSubscription(activeSub);
 
-    if (currentUser && isSupabaseConfigured && subscription.id && !subscription.id.startsWith('sub-local')) {
+    if (
+      currentUser &&
+      isSupabaseConfigured &&
+      subscription.id &&
+      !subscription.id.startsWith("sub-local")
+    ) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('subscriptions') as any)
+      (supabase.from("subscriptions") as any)
         .update({
-          plan_status: 'active',
+          plan_status: "active",
           current_period_end: activeSub.current_period_end,
           updated_at: activeSub.updated_at,
         })
-        .eq('id', subscription.id)
+        .eq("id", subscription.id)
         .then(({ error }: { error?: { message: string } }) => {
-          if (error) console.warn('Erro ao atualizar assinatura no Supabase:', error.message);
+          if (error)
+            console.warn(
+              "Erro ao atualizar assinatura no Supabase:",
+              error.message,
+            );
         });
     }
 
-    alert('🎉 Plano Pro Ativado com Sucesso! Acesso ilimitado a todas as ferramentas liberado.');
+    alert(
+      "🎉 Plano Pro Ativado com Sucesso! Acesso ilimitado a todas as ferramentas liberado.",
+    );
   };
 
   // Processa o fechamento diário chamando a API integrada
@@ -154,9 +187,9 @@ export default function HomePage() {
   }) => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/process-day', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/process-day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payload,
           vehicle,
@@ -169,7 +202,7 @@ export default function HomePage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Erro ao processar fechamento diário');
+        throw new Error(data.error || "Erro ao processar fechamento diário");
       }
 
       const closure: DailyClosureResult = data.closure;
@@ -195,7 +228,7 @@ export default function HomePage() {
       // Atualiza o histórico dos últimos 7 dias
       const newLogItem: DailyLog = {
         id: `log-${Date.now()}`,
-        user_id: currentUser?.id || 'local-user',
+        user_id: currentUser?.id || "local-user",
         log_date: closure.log_date,
         platform: closure.platform,
         gross_earnings: closure.gross_earnings,
@@ -210,8 +243,10 @@ export default function HomePage() {
       const updatedHistory = addStoredDailyLog(newLogItem);
       setWeeklyLogs(updatedHistory);
     } catch (err) {
-      console.error('Falha no fechamento diário:', err);
-      alert(err instanceof Error ? err.message : 'Erro ao processar fechamento.');
+      console.error("Falha no fechamento diário:", err);
+      alert(
+        err instanceof Error ? err.message : "Erro ao processar fechamento.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -222,13 +257,22 @@ export default function HomePage() {
     setVehicle(updatedVehicle);
     saveStoredVehicle(updatedVehicle);
 
-    if (currentUser && isSupabaseConfigured && updatedVehicle.id && !updatedVehicle.id.startsWith('sim-')) {
+    if (
+      currentUser &&
+      isSupabaseConfigured &&
+      updatedVehicle.id &&
+      !updatedVehicle.id.startsWith("sim-")
+    ) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('vehicles') as any)
+      (supabase.from("vehicles") as any)
         .update(updatedVehicle)
-        .eq('id', updatedVehicle.id)
+        .eq("id", updatedVehicle.id)
         .then(({ error }: { error?: { message: string } }) => {
-          if (error) console.warn('Erro ao atualizar veículo no Supabase:', error.message);
+          if (error)
+            console.warn(
+              "Erro ao atualizar veículo no Supabase:",
+              error.message,
+            );
         });
     }
   };
@@ -236,11 +280,11 @@ export default function HomePage() {
   // Registra troca de peça preventiva
   const handleRegisterReplacement = (itemId: string) => {
     const targetItem = maintenanceItems.find((i) => i.id === itemId);
-    const itemName = targetItem ? targetItem.item_name : 'Peça';
+    const itemName = targetItem ? targetItem.item_name : "Peça";
 
     if (
       !confirm(
-        `Confirmar a troca física da peça "${itemName}"?\nO odômetro desta peça será atualizado para o km atual (${vehicle.current_odometer.toLocaleString('pt-BR')} km) e o saldo da caixinha será reiniciado.`
+        `Confirmar a troca física da peça "${itemName}"?\nO odômetro desta peça será atualizado para o km atual (${vehicle.current_odometer.toLocaleString("pt-BR")} km) e o saldo da caixinha será reiniciado.`,
       )
     ) {
       return;
@@ -260,21 +304,29 @@ export default function HomePage() {
     setMaintenanceItems(updatedItems);
     saveStoredMaintenanceItems(updatedItems);
 
-    if (currentUser && isSupabaseConfigured && itemId && !itemId.startsWith('sim-')) {
+    if (
+      currentUser &&
+      isSupabaseConfigured &&
+      itemId &&
+      !itemId.startsWith("sim-")
+    ) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('maintenance_items') as any)
+      (supabase.from("maintenance_items") as any)
         .update({
           last_changed_odometer: vehicle.current_odometer,
           reserved_balance: 0,
         })
-        .eq('id', itemId)
+        .eq("id", itemId)
         .then(({ error }: { error?: { message: string } }) => {
-          if (error) console.warn('Erro ao atualizar peça no Supabase:', error.message);
+          if (error)
+            console.warn("Erro ao atualizar peça no Supabase:", error.message);
         });
     }
 
     if (activeClosure) {
-      const refreshedAlerts = activeClosure.alerts.filter((a) => !a.includes(itemName));
+      const refreshedAlerts = activeClosure.alerts.filter(
+        (a) => !a.includes(itemName),
+      );
       const refreshedClosure = { ...activeClosure, alerts: refreshedAlerts };
       setActiveClosure(refreshedClosure);
       saveStoredActiveClosure(refreshedClosure);
@@ -298,7 +350,7 @@ export default function HomePage() {
 
       {/* Conteúdo Principal */}
       <main className="flex-1 mx-auto w-full max-w-4xl p-4 sm:p-6 space-y-6">
-        {activeTab === 'closure' ? (
+        {activeTab === "closure" ? (
           <>
             {/* 1. Card Principal de Fechamento com IA */}
             <DailyClosureCard
@@ -317,9 +369,7 @@ export default function HomePage() {
             )}
 
             {/* 3. Evolução dos Últimos 7 Lançamentos */}
-            <WeeklyHistory
-              logs={weeklyLogs}
-            />
+            <WeeklyHistory logs={weeklyLogs} />
 
             {/* 4. Caixinha de Manutenção & Odômetro */}
             <MaintenanceBox
@@ -328,10 +378,16 @@ export default function HomePage() {
               onRegisterReplacement={handleRegisterReplacement}
             />
           </>
+        ) : activeTab === "dispatcher" ? (
+          /* 5. Aba Agente Despachante & Entregas */
+          <DispatcherAgent
+            initialPlan={routePlan}
+            driverName={currentUser?.email ? currentUser.email.split("@")[0] : "Motorista"}
+          />
         ) : (
-          /* 5. Aba Cofre Anti-Bloqueio */
+          /* 6. Aba Cofre Anti-Bloqueio */
           <AntiBlockVault
-            defaultPlatform={activeClosure?.platform || 'iFood'}
+            defaultPlatform={activeClosure?.platform || "iFood"}
             isPro={subscriptionStatus.isPro}
             onOpenUpgradeModal={() => setIsUpgradeModalOpen(true)}
           />
@@ -383,11 +439,17 @@ export default function HomePage() {
               📖 Passo a Passo Interativo
             </button>
             <span className="text-slate-700">•</span>
-            <Link href="/termos" className="text-slate-400 hover:text-slate-200 transition-colors">
+            <Link
+              href="/termos"
+              className="text-slate-400 hover:text-slate-200 transition-colors"
+            >
               Termos de Uso
             </Link>
             <span className="text-slate-700">•</span>
-            <Link href="/privacidade" className="text-slate-400 hover:text-slate-200 transition-colors">
+            <Link
+              href="/privacidade"
+              className="text-slate-400 hover:text-slate-200 transition-colors"
+            >
               Privacidade (LGPD)
             </Link>
             <span className="text-slate-700">•</span>
@@ -402,10 +464,12 @@ export default function HomePage() {
           </div>
 
           <p className="font-semibold text-slate-400">
-            Copiloto-Rota • Inteligência Financeira e Defesa para Motoristas e Entregadores
+            Copiloto-Rota • Inteligência Financeira e Defesa para Motoristas e
+            Entregadores
           </p>
           <p className="text-[11px] text-slate-600">
-            Versão 2.0.0 • Deploy Contínuo 24/7 • Assinatura PIX Direto (R$ 19,90/mês) • 7 Dias Grátis
+            Versão 2.0.0 • Deploy Contínuo 24/7 • Assinatura PIX Direto (R$
+            19,90/mês) • 7 Dias Grátis
           </p>
         </div>
       </footer>

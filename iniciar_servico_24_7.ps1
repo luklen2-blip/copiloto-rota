@@ -19,7 +19,7 @@ Write-Host "==========================================================" -Foregro
 # 1. Verificar se Node já está respondendo na porta 3001
 $nodeRunning = $false
 try {
-    $resp = Invoke-RestMethod -Uri "http://localhost:3001/api/health" -TimeoutSec 3 -ErrorAction Stop
+    $resp = Invoke-RestMethod -Uri "http://127.0.0.1:3001/api/health" -TimeoutSec 3 -ErrorAction Stop
     if ($resp.status -eq "ok") {
         $nodeRunning = $true
         Write-Host "Servidor Copiloto-Rota ja ativo na porta 3001." -ForegroundColor Green
@@ -30,7 +30,7 @@ try {
 
 if (-not $nodeRunning) {
     Write-Host "Iniciando Servidor Next.js (porta 3001)..." -ForegroundColor Yellow
-    $nodeCmd = "cmd.exe /c cd /d `"$projectDir`" && npx next start -p 3001"
+    $nodeCmd = "cmd.exe /c cd /d `"$projectDir`" && npx next start -p 3001 -H 0.0.0.0"
     ([wmiclass]"Win32_Process").Create($nodeCmd) | Out-Null
     Start-Sleep -Seconds 3
 }
@@ -59,7 +59,7 @@ if (-not $tunnelUrl -and (Test-Path $cloudflaredBin)) {
     if (Test-Path $logFile) { Remove-Item $logFile -Force -ErrorAction SilentlyContinue }
 
     Write-Host "Iniciando Cloudflare Quick Tunnel (--no-prechecks)..." -ForegroundColor Yellow
-    $cfCmd = "cmd.exe /c cd /d `"$projectDir`" && `"$cloudflaredBin`" tunnel --no-autoupdate --no-prechecks --url http://localhost:3001 2> `"$logFile`""
+    $cfCmd = "cmd.exe /c cd /d `"$projectDir`" && `"$cloudflaredBin`" tunnel --no-autoupdate --no-prechecks --url http://127.0.0.1:3001 2> `"$logFile`""
     ([wmiclass]"Win32_Process").Create($cfCmd) | Out-Null
 
     Write-Host "Aguardando URL do tunel..." -ForegroundColor Cyan

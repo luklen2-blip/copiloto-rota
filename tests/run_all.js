@@ -45,6 +45,12 @@ const requiredPaths = [
   'src/components/UpgradeModal.tsx',
   'src/components/WeeklyHistory.tsx',
   'src/app/api/admin/activate-pro/route.ts',
+  'src/types/database.types.ts',
+  'src/types/dispatcher.types.ts',
+  'src/services/dispatcherAgent.ts',
+  'src/components/DispatcherAgent.tsx',
+  'src/app/api/dispatcher/ocr-proof/route.ts',
+  'src/app/api/dispatcher/optimize/route.ts',
   'public/manifest.json',
   'public/sw.js',
   'public/icon-192.png',
@@ -349,6 +355,83 @@ try {
   console.error(
     "❌ [FAIL] Erro nos testes unitários do PIX e Assinatura:",
     pixErr.message,
+  );
+  failed = true;
+}
+
+// 5.5 Testando Agente Despachante & Entregas
+console.log("\n🚚 5.5. Testando Agente Despachante & Entregas (WhatsApp, GPS, Rotas)...");
+const dispatcherTestScript = `
+const {
+  sanitizeBrazilianPhone,
+  generateWhatsAppUrl,
+  generateGpsUrl,
+  parseDeliveryListText,
+  optimizeRouteStops,
+  analyzeDeliveryProofWithAI
+} = require('./dist-test-dispatcher/dispatcherAgent.js');
+
+// 1. Sanitização de telefone
+if (sanitizeBrazilianPhone('11987654321') !== '5511987654321') throw new Error('Falha na sanitização de telefone 11 dígitos');
+if (sanitizeBrazilianPhone('5511987654321') !== '5511987654321') throw new Error('Falha na sanitização com 55 já presente');
+
+// 2. Geração de URLs de WhatsApp
+const mockStop = {
+  id: 'st-1',
+  order_id: 'PED-999',
+  customer_name: 'Ana Silva',
+  customer_phone: '11988887777',
+  address: 'Rua Augusta, 1000 - SP',
+  status: 'pending'
+};
+const waUrlPre = generateWhatsAppUrl(mockStop, 'pre_arrival', 'João');
+if (!waUrlPre.includes('wa.me/5511988887777')) throw new Error('URL WhatsApp não contém telefone formatado');
+if (!waUrlPre.includes(encodeURIComponent('Ana Silva'))) throw new Error('URL WhatsApp não contém nome do cliente');
+
+const waUrlArrived = generateWhatsAppUrl(mockStop, 'arrived');
+if (!waUrlArrived.includes(encodeURIComponent('cheguei'))) throw new Error('Mensagem arrived incorreta');
+
+// 3. Geração de GPS
+const wazeUrl = generateGpsUrl('Av Paulista 1000', 'waze');
+if (!wazeUrl.includes('waze.com') || !wazeUrl.includes('navigate=yes')) throw new Error('URL Waze inválida');
+
+const mapsUrl = generateGpsUrl('Av Paulista 1000', 'google_maps');
+if (!mapsUrl.includes('google.com/maps')) throw new Error('URL Google Maps inválida');
+
+// 4. Parser de lista em texto
+const sampleList = '1. Maria - 11999991111 - Rua das Palmeiras 50 - Pedido #101\\n2. Roberto - 11988882222 - Av Brasil 200 - Pedido #102';
+const parsed = parseDeliveryListText(sampleList);
+if (parsed.length !== 2) throw new Error('Falha no parser de texto: esperava 2 paradas');
+if (parsed[0].customer_name !== 'Maria') throw new Error('Nome extraído incorreto');
+if (!parsed[0].estimated_arrival) throw new Error('Previsão de chegada não calculada');
+
+// 5. OCR Heurístico
+analyzeDeliveryProofWithAI('data:image/jpeg;base64,mock', 'image/jpeg', mockStop).then(res => {
+  if (!res.signature_present) throw new Error('Auditoria de canhoto deveria detectar assinatura');
+  console.log('✅ Agente Despachante validado com sucesso (Telefones, WhatsApp, GPS, Rotas e OCR)!');
+}).catch(err => {
+  console.error(err);
+  process.exit(1);
+});
+`;
+
+try {
+  execSync(
+    "npx esbuild src/services/dispatcherAgent.ts --bundle --platform=node --outdir=dist-test-dispatcher",
+    { cwd: rootDir, stdio: "pipe" },
+  );
+  execSync(
+    `node -e "${dispatcherTestScript.replace(/"/g, '\\"').replace(/\n/g, " ")}"`,
+    { cwd: rootDir, stdio: "inherit" },
+  );
+  fs.rmSync(path.join(rootDir, "dist-test-dispatcher"), {
+    recursive: true,
+    force: true,
+  });
+} catch (dispErr) {
+  console.error(
+    "❌ [FAIL] Erro nos testes unitários do Agente Despachante:",
+    dispErr.message,
   );
   failed = true;
 }
